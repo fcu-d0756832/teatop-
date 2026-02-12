@@ -17,7 +17,7 @@ from google.auth.exceptions import RefreshError
 # ===============================
 # 基本設定
 # ===============================
-nas_target_path = r"\\192.168.10.253\管理中心\財會課\加盟店應收\應收拋轉(心豪)\20260209"
+nas_target_path = r"\\192.168.10.253\管理中心\財會課\加盟店應收\應收拋轉(心豪)\20260210"
 folder_path = nas_target_path
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
@@ -280,6 +280,16 @@ _{last_amt}_ + _{curr_amt}_ - _{prepay_amt}_ = __{total_amt}__
 
     msg = EmailMessage()
     msg.set_content(body)
+    # --- 清洗收件者 email ---
+    recipient_email = str(recipient_email).strip()
+
+    # 如果是 NaN 轉成空字串
+    if recipient_email.lower() == "nan":
+        recipient_email = ""
+
+    if not recipient_email or "@" not in recipient_email:
+        print(f"❌ 無效 Email，跳過寄送：{store_name} → {recipient_email}")
+        continue
     msg["To"] = recipient_email
     msg["From"] = "teatop0048@gmail.com"
     msg["Subject"] = subject

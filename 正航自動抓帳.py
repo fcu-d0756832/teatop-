@@ -30,15 +30,15 @@ opening_balance_sum = 0  # ✅ 新增：庫存期初 / 無日期
 file_name_path = r"\\192.168.2.253\\管理中心\\財會課\\加盟店應收\\應收拋轉(心豪)"
 #明細表日期是簡要表減1天工作天
 date1_start ="20250607"
-date1_end = "20260325"
+date1_end = "20260324"
 #簡要表日期2個工作天
 date2_start ="20250607"
-date2_end = "20260325"
+date2_end = "20260324"
 # 判斷星期幾
 dt = datetime.strptime(date2_end, "%Y%m%d")
 weekday_index = dt.weekday()
 
-base_path = r"C:\\Users\\楊心豪\\Desktop\\爬蟲"
+base_path = r"C:\\Users\\楊心豪\\Downloads"
 store_list_json = r"\\192.168.2.253\\事業中心\\資訊\\code\\store_list.json"
 # 你的 NAS 路徑（請依實際情況修改）
 nas_base_path = r"\\192.168.2.253\\管理中心\\財會課\\加盟店應收\\應收拋轉(心豪)"
@@ -62,7 +62,7 @@ def subtract_workday(date_str, days=1):
 summary_dt = datetime.strptime(date2_end, "%Y%m%d")
 
 # 明細表實際日期 = 簡要表減 1 個工作天
-detail_dt = subtract_workday(date2_end, 1)
+detail_dt = summary_dt
 
 # ======================
 # 星期判斷（只算一次）
@@ -229,93 +229,75 @@ for filename in os.listdir(output_folder):
             print(f"⚠️ 檔案 {filename} 找不到『日期』或『未收金額』欄位，跳過")
             continue
 
-        # 初始化變數
-        grouped_data = []  # 存每個日期區段的加總
+        opening_balance_sum = 0
         current_date = None
         current_sum = 0
+        grouped_data = []
 
         for i in range(date_row_idx + 1, df.shape[0]):
             row = df.iloc[i]
+            row_str_combined = " ".join(map(str, row.values))
 
-            # 如果遇到「本幣累計預收貨款金額」 → 用正則抓第一個數字
-            for j in range(len(row)):
-                if "本幣累計預收貨款金額" in str(row[j]):
-                    row_str = " ".join(map(str, row))  # 整行轉字串
-                    match = re.search(r"\d+", row_str)
-                    if match:
-                        prepayment = float(match.group())
-                    else:
-                        prepayment = 0
-                    break
-            if "本幣累計預收貨款金額" in " ".join(map(str, row)):
-                break
+            # 偵測結尾並抓取預收
+            if "本幣累計預收貨款金額" in row_str_combined:
+                parts = row_str_combined.split("本幣累計預收貨款金額")
+                match = re.search(r"(\d[\d,.]*)", parts[-1])
+                prepayment = float(match.group().replace(",", "")) if match else 0
+                break 
 
+            # 🚩 全行掃描：跳過任何包含「庫存期初」的列
+            if "庫存期初" in row_str_combined:
+                continue 
+
+            # 日期與加總邏輯
             raw_date = str(row[date_col_idx]).strip()
             unpaid_val = row[unpaid_col_idx]
-
             parsed_date = pd.to_datetime(raw_date, errors='coerce')
-            is_new_date = pd.notna(parsed_date)
 
-            if is_new_date:
-                # 遇到新日期，先結算上一段
+            if pd.notna(parsed_date):
                 if current_date is not None:
                     grouped_data.append((current_date, current_sum))
                 current_date = parsed_date
                 current_sum = 0
 
-            # 加總未收金額
             if pd.notna(unpaid_val):
                 try:
                     val = float(str(unpaid_val).replace(",", "").strip())
-
                     if current_date is None:
-                        # ✅ 還沒遇到任何日期 → 當作庫存期初 / 上期
                         opening_balance_sum += val
                     else:
                         current_sum += val
-
                 except:
                     pass
 
+        # --- 5. 最終彙總計算 ---
+        # (此處的 previous_period_amount 將是扣除庫存期初後的純淨金額)
 
-        # 最後一段也加進去
+        # --- 5. 最終結算該店金額 ---
         if current_date is not None:
             grouped_data.append((current_date, current_sum))
 
-        # 拆分本期 / 上期（檢查是否有 date2_end）
         target_date = pd.to_datetime(date2_end, format="%Y%m%d", errors="coerce")
-        has_current_period = any(d == target_date for d, _ in grouped_data)
-
-        if grouped_data:
-            if has_current_period:
-                # 本期金額 = date2_end 當天的加總
-                current_period_amount = sum(val for d, val in grouped_data if d == target_date)
-                previous_period_amount = (
-                    opening_balance_sum +
-                    sum(val for d, val in grouped_data if d != target_date)
-                )
-
-            else:
-                # 沒有當天叫貨 → 全部算上期
-                current_period_amount = 0
-                previous_period_amount = sum(val for _, val in grouped_data)
-            total_receivable = current_period_amount + previous_period_amount
-        else:
-            current_period_amount = 0
-            previous_period_amount = 0
-            total_receivable = 0
-
-        adjusted_total = total_receivable - (prepayment if prepayment else 0)  # ✅ 預收 NaN → 0
+        
+        # 本期：剛好是 target_date 的加總
+        current_period_amount = sum(v for d, v in grouped_data if d == target_date)
+        
+        # 上期：排除期初後的 opening_balance_sum + 其他日期的加總
+        previous_period_amount = opening_balance_sum + sum(v for d, v in grouped_data if d != target_date)
+        
+        # 總計
+        adjusted_total = current_period_amount + previous_period_amount - prepayment
 
         if store_name:
             result_list.append({
                 "店名": store_name,
                 "上期": previous_period_amount,
                 "本期": current_period_amount,
-                "預收": prepayment if prepayment else 0,  # ✅ NaN → 0
+                "預收": prepayment,
                 "本幣期末應收帳款總計(本期+上期-預收)": adjusted_total
             })
         else:
+            # ✅ 這裡的 print 也要同步修正，確保報錯時顯示的是正確的變數
             print(f"❗檔案 {filename} 缺少資訊：{store_name=}, {total_receivable=}, {prepayment=}")
 
 # 匯出彙總表
@@ -430,60 +412,62 @@ for sheet in wb.Sheets:
     if company_name:
         company_sheets.setdefault(company_name, []).append(sheet.Name)
 
-# 📤 輸出 PDF（只針對簡要表名單中的公司）
+# --- 修正後的明細表輸出區塊 ---
 for company, sheets in company_sheets.items():
     if company not in summary_store_names:
         continue
+
+    safe_name = re.sub(r'[\\/*?:"<>|]', "_", company)
+    pdf_path = os.path.join(output_folder, f"{safe_name}_明細表_{date1_end}.pdf")
 
     try:
         temp_wb = excel.Workbooks.Add()
         default_sheet = temp_wb.Sheets(1)
         copied = False
 
-        # 🔁 關鍵：反向複製，讓 PDF 順序變成 1 → 2 → 3 → 4
         for sheet_name in reversed(sheets):
             sheet = wb.Sheets(sheet_name)
             sheet.Copy(Before=temp_wb.Sheets(1))
             copied = True
 
         if copied:
-            default_sheet.Delete()
+            try:
+                temp_wb.Sheets(temp_wb.Sheets.Count).Delete()
+            except:
+                pass
 
             for ws in temp_wb.Sheets:
-                # 🧹 刪除前三列
+                # 1. 🧹 刪除前三列 (正航標題列清理)
                 ws.Rows("1:3").Delete()
-                # ✨ 新增：強制統一字體，避免 PDF 轉檔亂碼
-                try:
-                    ws.Cells.Font.Name = "微軟正黑體"
-                    # 如果微軟正黑體抓不到，可以改用 "新細明體"
-                except:
-                    pass
-                # 📐 設定列印區域
+
+                # 2. ✨ 字體修正：解決亂碼並確保清晰
+                ws.Cells.Font.Name = "微軟正黑體"
+                ws.Cells.Font.Size = 9  # 稍微縮小字體基數，讓壓縮後更清晰
+
+                # 3. 📐 強制定義列印範圍 (A 欄到 Z 欄)
                 last_row = ws.UsedRange.Rows.Count
-                last_col = ws.UsedRange.Columns.Count
-                ws.PageSetup.PrintArea = ws.Range(
-                    ws.Cells(1, 1),
-                    ws.Cells(last_row, last_col)
-                ).Address
+                ws.PageSetup.PrintArea = ws.Range("A1:Z" + str(last_row)).Address
 
-                # 📏 版面設定（完全不動你原本的比例）
-                ws.PageSetup.Zoom = 70
-                ws.PageSetup.Orientation = 2  # 橫向
-                ws.PageSetup.CenterHorizontally = True
-                ws.PageSetup.CenterVertically = True
-            # 將 Quality 設為 0 (標準品質)，並確保 OpenAfterPublish 為 False
-            temp_wb.ExportAsFixedFormat(0, pdf_path)
-            safe_name = re.sub(r'[\\/*?:"<>|]', "_", company)
-            pdf_path = os.path.join(
-                output_folder,
-                f"{safe_name}_明細表_{date1_end}.pdf"
-            )
+                # 4. 📏 關鍵設定：強制縮在一個 A4 寬度
+                ws.PageSetup.Zoom = False            # 🚩 必須為 False，下方的 FitToPages 才會生效
+                ws.PageSetup.FitToPagesWide = 1      # 🚩 強制所有欄位 (A-Z) 擠在一頁寬度內
+                ws.PageSetup.FitToPagesTall = False  # 🚩 長度自然分頁，不強制壓縮高度 (避免變太小)
+                
+                ws.PageSetup.Orientation = 2         # 橫向列印
+                ws.PageSetup.PaperSize = 9           # A4 紙張
+                ws.PageSetup.CenterHorizontally = True 
+                
+                # 5. 🤏 邊距極小化 (爭取更多顯示空間)
+                ws.PageSetup.LeftMargin = 5          
+                ws.PageSetup.RightMargin = 5
+                ws.PageSetup.TopMargin = 10
+                ws.PageSetup.BottomMargin = 10
 
+            # 📤 執行匯出
             temp_wb.ExportAsFixedFormat(0, pdf_path)
-            print(f"✅ 已輸出 PDF：{pdf_path}")
+            print(f"✅ 已輸出最適比例 PDF (A-Z)：{pdf_path}")
 
         temp_wb.Close(False)
-
     except Exception as e:
         print(f"❌ {company} 錯誤：{e}")
 
@@ -514,6 +498,5 @@ try:
 
 except Exception as e:
     print(f"❌ 搬移至 NAS 失敗：{e}")   
-
 
 

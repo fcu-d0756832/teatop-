@@ -13,135 +13,27 @@ import subprocess
 import pyperclip
 import shutil
 import json
-'''
 
 
-# 啟動 ERP 主程式
-subprocess.Popen(r'C:\T357\T357.exe')
-time.sleep(15)  # 等待 ERP 開啟（可調整）
 
-
-pyautogui.click(924, 618)  # 點選密碼
-time.sleep(0.5)
-pyperclip.copy("28962490")
-pyautogui.hotkey('ctrl', 'v')
-time.sleep(0.5)
-
-pyautogui.click(1135, 622)  #點選登入
-time.sleep(5) 
-
-
-pyautogui.click(135, 42)  #點選報表
-pyautogui.click(177, 137)  #點選帳款管理
-time.sleep(1)
-pyautogui.click(361, 135)  #點選應收帳款報表
-time.sleep(1)
-pyautogui.click(592, 133)  #點選應收帳款明細表
-time.sleep(1.5)
-pyautogui.click(1128, 330)  #點選
-time.sleep(1)
-pyautogui.click(713, 367)  #點選客戶起始
-pyautogui.click(713, 367)  #點選客戶起始兩次進入視窗
-time.sleep(1)
-pyautogui.click(485, 441)  #點選客戶起始"C"
-pyautogui.click(713, 367)  #點選客戶起始
-time.sleep(1)
-pyautogui.click(788, 415)  #點選客戶編號
-pyautogui.click(788, 415)  #點選客戶編號兩次
-time.sleep(1)
-pyautogui.click(905, 380)  #點選客戶截止
-pyautogui.click(905, 380)  #點選客戶截止兩次
-time.sleep(1)
-pyautogui.click(717, 443)  #點選客戶起始"C"
-# 移動到起始點 (100, 200)
-pyautogui.moveTo(1415, 419, duration=0.5)
-
-# 按住滑鼠左鍵
-pyautogui.mouseDown()
-
-# 拖移到新的座標 
-pyautogui.moveTo(1477, 790, duration=1)
-# 放開滑鼠左鍵
-pyautogui.mouseUp()
-time.sleep(1)
-pyautogui.click(1035, 777)  #點選客戶截止
-pyautogui.click(1035, 777)  #點選客戶截止兩次
-pyautogui.click(724, 501)  #點選交易日起始
-pyperclip.copy(date1_start)
-pyautogui.hotkey('ctrl', 'v')
-time.sleep(1)
-pyautogui.click(959, 501)  #點選交易日結束
-time.sleep(1)
-pyperclip.copy(date1_end)
-pyautogui.hotkey('ctrl', 'v')
-pyautogui.click(673, 859)  #點選預覽
-time.sleep(50)
-
-pyautogui.click(472, 149)  #點選保存
-pyautogui.click(472, 149)  #點選保存
-time.sleep(2)
-file_name_full = file_name_1 + date1_end
-pyperclip.copy(file_name_full)
-pyautogui.click(887, 539)  #點選檔案名稱
-pyautogui.click(887, 539)  #點選檔案名稱
-time.sleep(0.5)
-pyautogui.hotkey('ctrl', 'v')
-time.sleep(0.5)
-pyautogui.click(908, 583)  #點選存檔類型
-time.sleep(0.5)
-pyautogui.click(911, 816)  #點選xlsx
-time.sleep(1)
-pyautogui.click(1193, 540)  #點選存檔
-time.sleep(1)
-pyautogui.click(1149, 408)  #點選存檔2
-time.sleep(10)
-pyautogui.click(1662, 118)  #點選離開x
-time.sleep(2)
-pyautogui.click(1035, 777)  #點選客戶截止
-pyautogui.click(1035, 777)  #點選客戶截止兩次
-pyautogui.click(724, 501)  #點選交易日起始
-pyperclip.copy(date2_start)
-pyautogui.hotkey('ctrl', 'v')
-time.sleep(1)
-pyautogui.click(959, 501)  #點選交易日結束
-pyperclip.copy(date2_end)
-pyautogui.hotkey('ctrl', 'v')
-pyautogui.click(1131, 354)  #點選簡要表
-time.sleep(1)
-pyautogui.click(673, 859)  #點選預覽
-time.sleep(50)
-pyautogui.click(472, 149)  #點選保存
-pyautogui.click(472, 149)  #點選保存
-file_name_full = file_name_2 + date2_end
-pyperclip.copy(file_name_full)
-pyautogui.click(887, 539)  #點選檔案名稱
-pyautogui.click(887, 539)  #點選檔案名稱
-pyautogui.hotkey('ctrl', 'v')
-time.sleep(1)
-pyautogui.click(899, 580)  #點選存檔類型
-time.sleep(0.5)
-pyautogui.click(860, 813)  #點選xlsx
-time.sleep(1)
-pyautogui.click(1193, 540)  #點選存檔
-time.sleep(1)
-pyautogui.click(1149, 408)  
-
-time.sleep(10)
-'''
 
 file_name_1 = "會計拋轉需要_明細表_"
 file_name_2 = "會計拋轉需要_簡要表_"
 
+grouped_data = []
+current_date = None
+current_sum = 0
+opening_balance_sum = 0  # ✅ 新增：庫存期初 / 無日期
 
 
 #明細表的位置
 file_name_path = r"\\192.168.2.253\\管理中心\\財會課\\加盟店應收\\應收拋轉(心豪)"
 #明細表日期是簡要表減1天工作天
 date1_start ="20250607"
-date1_end = "20260121"
+date1_end = "20260325"
 #簡要表日期2個工作天
 date2_start ="20250607"
-date2_end = "20260121"
+date2_end = "20260325"
 # 判斷星期幾
 dt = datetime.strptime(date2_end, "%Y%m%d")
 weekday_index = dt.weekday()
@@ -365,7 +257,7 @@ for filename in os.listdir(output_folder):
             is_new_date = pd.notna(parsed_date)
 
             if is_new_date:
-                # 儲存上一段的結果
+                # 遇到新日期，先結算上一段
                 if current_date is not None:
                     grouped_data.append((current_date, current_sum))
                 current_date = parsed_date
@@ -375,9 +267,16 @@ for filename in os.listdir(output_folder):
             if pd.notna(unpaid_val):
                 try:
                     val = float(str(unpaid_val).replace(",", "").strip())
-                    current_sum += val
+
+                    if current_date is None:
+                        # ✅ 還沒遇到任何日期 → 當作庫存期初 / 上期
+                        opening_balance_sum += val
+                    else:
+                        current_sum += val
+
                 except:
                     pass
+
 
         # 最後一段也加進去
         if current_date is not None:
@@ -391,7 +290,11 @@ for filename in os.listdir(output_folder):
             if has_current_period:
                 # 本期金額 = date2_end 當天的加總
                 current_period_amount = sum(val for d, val in grouped_data if d == target_date)
-                previous_period_amount = sum(val for d, val in grouped_data if d != target_date)
+                previous_period_amount = (
+                    opening_balance_sum +
+                    sum(val for d, val in grouped_data if d != target_date)
+                )
+
             else:
                 # 沒有當天叫貨 → 全部算上期
                 current_period_amount = 0
@@ -549,7 +452,12 @@ for company, sheets in company_sheets.items():
             for ws in temp_wb.Sheets:
                 # 🧹 刪除前三列
                 ws.Rows("1:3").Delete()
-
+                # ✨ 新增：強制統一字體，避免 PDF 轉檔亂碼
+                try:
+                    ws.Cells.Font.Name = "微軟正黑體"
+                    # 如果微軟正黑體抓不到，可以改用 "新細明體"
+                except:
+                    pass
                 # 📐 設定列印區域
                 last_row = ws.UsedRange.Rows.Count
                 last_col = ws.UsedRange.Columns.Count
@@ -563,7 +471,8 @@ for company, sheets in company_sheets.items():
                 ws.PageSetup.Orientation = 2  # 橫向
                 ws.PageSetup.CenterHorizontally = True
                 ws.PageSetup.CenterVertically = True
-
+            # 將 Quality 設為 0 (標準品質)，並確保 OpenAfterPublish 為 False
+            temp_wb.ExportAsFixedFormat(0, pdf_path)
             safe_name = re.sub(r'[\\/*?:"<>|]', "_", company)
             pdf_path = os.path.join(
                 output_folder,
